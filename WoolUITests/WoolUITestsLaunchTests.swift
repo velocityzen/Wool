@@ -1,13 +1,13 @@
 //
-//  CleanUITestsLaunchTests.swift
-//  CleanUITests
+//  WoolUITestsLaunchTests.swift
+//  WoolUITests
 //
 //  Created by Alexey Novikov on 2025-04-22.
 //
 
 import XCTest
 
-final class CleanUITestsLaunchTests: XCTestCase {
+final class WoolUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
