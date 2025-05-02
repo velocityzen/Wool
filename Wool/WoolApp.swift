@@ -5,12 +5,11 @@ import SwiftUI
   var isKeyboardLockEnabled: Bool = false
 }
 
-
 @main
 struct WoolApp: App {
   @NSApplicationDelegateAdaptor(WoolAppDelegate.self) var appDelegate
   @State private var wool: Wool = .init()
-  
+
   init() {
     appDelegate.wool = wool
   }
@@ -18,14 +17,20 @@ struct WoolApp: App {
   var body: some Scene {
     MenuBarExtra("Wool", systemImage: getMenuBarIcon()) {
       Button(action: toggleScreenAndKeyboardLock) {
-        Label("\(getLockLabel(wool.isScreenLockEnabled)) Screen & Keyboard", systemImage: "lock")
-          .labelStyle(.titleAndIcon)
+        Label(
+          "\(getLockLabel(wool.isScreenLockEnabled)) Screen & Keyboard",
+          systemImage: "lock"
+        )
+        .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("S")
 
       Button(action: toggleKeyboardLock) {
-        Label("\(getLockLabel(wool.isKeyboardLockEnabled)) Keyboard", systemImage: "keyboard")
-          .labelStyle(.titleAndIcon)
+        Label(
+          "\(getLockLabel(wool.isKeyboardLockEnabled)) Keyboard",
+          systemImage: "keyboard"
+        )
+        .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("K")
 
@@ -39,7 +44,7 @@ struct WoolApp: App {
   }
 
   func getMenuBarIcon() -> String {
-    if (wool.isScreenLockEnabled || wool.isKeyboardLockEnabled) {
+    if wool.isScreenLockEnabled || wool.isKeyboardLockEnabled {
       return "bubbles.and.sparkles.fill"
     }
 
@@ -47,7 +52,7 @@ struct WoolApp: App {
   }
 
   func getLockLabel(_ isLocked: Bool) -> String {
-    return isLocked ? "Unlock" : "Lock";
+    return isLocked ? "Unlock" : "Lock"
   }
 
   func toggleScreenAndKeyboardLock() {
@@ -62,5 +67,3 @@ struct WoolApp: App {
     NSApplication.shared.terminate(nil)
   }
 }
-
-
