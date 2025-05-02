@@ -3,8 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>This app needs access to keyboard events to handle media keys</string>
-	<key>LSBackgroundOnly</key>
-	<false/>
+	<string>This app needs access to keyboard events to lock the keyboard while cleaning the screen</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.2dubs.wool</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>wool</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

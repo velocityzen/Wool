@@ -1,22 +1,30 @@
 import SwiftUI
 
+@Observable class Wool {
+  var isScreenLockEnabled: Bool = false
+  var isKeyboardLockEnabled: Bool = false
+}
+
+
 @main
 struct WoolApp: App {
-  @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
-  @State private var isScreenLockEnabled: Bool = false
-  @State private var isKeyboardLockEnabled: Bool = false
+  @NSApplicationDelegateAdaptor(WoolAppDelegate.self) var appDelegate
+  @State private var wool: Wool = .init()
+  
+  init() {
+    appDelegate.wool = wool
+  }
 
   var body: some Scene {
     MenuBarExtra("Wool", systemImage: getMenuBarIcon()) {
       Button(action: toggleScreenAndKeyboardLock) {
-        Label("\(getLockLabel(isScreenLockEnabled)) Screen & Keyboard", systemImage: "lock")
+        Label("\(getLockLabel(wool.isScreenLockEnabled)) Screen & Keyboard", systemImage: "lock")
           .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("S")
 
       Button(action: toggleKeyboardLock) {
-        Label("\(getLockLabel(isKeyboardLockEnabled)) Keyboard", systemImage: "keyboard")
+        Label("\(getLockLabel(wool.isKeyboardLockEnabled)) Keyboard", systemImage: "keyboard")
           .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("K")
@@ -31,11 +39,11 @@ struct WoolApp: App {
   }
 
   func getMenuBarIcon() -> String {
-    if (isScreenLockEnabled || isKeyboardLockEnabled) {
-      return "lock.circle.fill"
+    if (wool.isScreenLockEnabled || wool.isKeyboardLockEnabled) {
+      return "bubbles.and.sparkles.fill"
     }
 
-    return "lock.circle"
+    return "bubbles.and.sparkles"
   }
 
   func getLockLabel(_ isLocked: Bool) -> String {
@@ -43,27 +51,11 @@ struct WoolApp: App {
   }
 
   func toggleScreenAndKeyboardLock() {
-    isScreenLockEnabled.toggle()
-
-    if isScreenLockEnabled {
-      isKeyboardLockEnabled = true
-      appDelegate.showLockScreenWindow()
-      appDelegate.lockKeyboard()
-    } else {
-      isKeyboardLockEnabled = false
-      appDelegate.hideLockScreenWindow()
-      appDelegate.unlockKeyboard()
-    }
+    appDelegate.toggleScreenAndKeyboardLock()
   }
 
   func toggleKeyboardLock() {
-    isKeyboardLockEnabled.toggle()
-
-    if isKeyboardLockEnabled {
-      appDelegate.lockKeyboard()
-    } else {
-      appDelegate.unlockKeyboard()
-    }
+    appDelegate.toggleKeyboardLock()
   }
 
   func quit() {
@@ -72,111 +64,3 @@ struct WoolApp: App {
 }
 
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-  var window: NSWindow?
-  var eventTap: CFMachPort?
-  var runLoopSource: CFRunLoopSource?
-
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    // nothin, absolutly nothin
-  }
-
-  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-    return false
-  }
-
-  func showLockScreenWindow() {
-    if let lockWindow = self.window {
-      lockWindow.makeKeyAndOrderFront(self)
-      lockWindow.toggleFullScreen(self)
-    } else {
-      createLockWindow()
-    }
-  }
-
-  func hideLockScreenWindow() {
-    if let lockWindow = self.window {
-      lockWindow.close()
-    }
-  }
-
-  func createLockWindow() {
-    guard let screen = NSScreen.main else { return }
-    let screenFrame = screen.frame
-
-    let lockWindow = NSWindow(
-      contentRect: screenFrame,
-      styleMask: [.fullSizeContentView, .titled, .resizable],
-      backing: .buffered,
-      defer: false,
-      screen: NSScreen.main
-    )
-
-    lockWindow.center()
-    lockWindow.title = "Lock for \(screen.localizedName)"
-    lockWindow.contentView = NSHostingView(rootView: LockScreenView(screenName: screen.localizedName))
-    lockWindow.isReleasedWhenClosed = false
-    lockWindow.makeKeyAndOrderFront(self)
-    lockWindow.toggleFullScreen(self)
-
-    self.window = lockWindow
-  }
-
-  func lockKeyboard () {
-    if let eventTap = self.eventTap {
-      CGEvent.tapEnable(tap: eventTap, enable: true)
-    } else {
-      setupEventTap()
-    }
-  }
-
-  func unlockKeyboard () {
-    if let eventTap = self.eventTap {
-      CGEvent.tapEnable(tap: eventTap, enable: false)
-    }
-  }
-
-  func setupEventTap() {
-    let eventMask = (1 << CGEventType.keyDown.rawValue)
-
-    guard let eventTap = CGEvent.tapCreate(
-      tap: .cghidEventTap,
-      place: .headInsertEventTap,
-      options: .defaultTap,
-      eventsOfInterest: CGEventMask(eventMask),
-      callback: blockAllEvents,
-      userInfo: nil
-    ) else {
-      print("Failed to create event tap. Check system preferences for accessibility settings.")
-      return quit()
-    }
-
-    self.eventTap = eventTap
-
-    runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-    CGEvent.tapEnable(tap: eventTap, enable: true)
-    CFRunLoopRun()
-  }
-
-  func destroyEventTap() {
-    if let source = runLoopSource {
-      CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
-    }
-
-  }
-
-  func applicationWillTerminate(_ notification: Notification) {
-    unlockKeyboard()
-    destroyEventTap()
-  }
-
-  func quit() {
-    NSApplication.shared.terminate(self)
-  }
-}
-
-
-func blockAllEvents(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent, refcon: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-  return nil
-}
