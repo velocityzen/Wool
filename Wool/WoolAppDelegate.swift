@@ -88,18 +88,22 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
 
     let lockWindow = NSWindow(
       contentRect: screenFrame,
-      styleMask: [.fullSizeContentView, .titled, .resizable],
+      styleMask: [.borderless],
       backing: .buffered,
       defer: false,
       screen: NSScreen.main
     )
 
-    lockWindow.center()
-    lockWindow.title = "Lock for \(screen.localizedName)"
-    lockWindow.contentView = NSHostingView(rootView: LockScreenView(screenName: screen.localizedName))
+//    lockWindow.center()
+    lockWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    lockWindow.isOpaque = true
+    lockWindow.level = .mainMenu + 1
+//    lockWindow.title = "Lock for \(screen.localizedName)"
     lockWindow.isReleasedWhenClosed = false
-    lockWindow.makeKeyAndOrderFront(self)
-    lockWindow.toggleFullScreen(self)
+    
+    lockWindow.contentView = NSHostingView(rootView: LockScreenView(screenName: screen.localizedName))
+    lockWindow.makeKeyAndOrderFront(nil)
+//    lockWindow.toggleFullScreen(self)
 
     self.window = lockWindow
   }
