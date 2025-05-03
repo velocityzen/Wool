@@ -8,13 +8,6 @@ jobs:
   build-and-release:
     runs-on: macos-15
     steps:
-      - name: List Xcodes
-        run: |
-          sw_vers -productVersion
-          system_profiler SPDeveloperToolsDataType
-          xcode-select --print-path
-          ls /Applications/
-
       - name: Set up Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.0.app/Contents/Developer
 
@@ -79,9 +72,9 @@ jobs:
 
       - name: Zip the .app
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool.zip
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool_${{ github.event.release.tag_name }}.zip
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./Wool.zip
+          files: ./Wool_${{ github.event.release.tag_name }}.zip
