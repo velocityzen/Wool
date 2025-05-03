@@ -9,7 +9,7 @@ struct LockScreenView: View {
   var body: some View {
     VStack {
       Spacer()
-      
+
       VStack {
         Image(systemName: "lock")
         Text(screenName)
@@ -20,7 +20,7 @@ struct LockScreenView: View {
       .padding(.top, 50)
 
       Spacer()
-      
+
       Text("Press ⌘ + Shift + S to unlock")
         .font(.footnote)
         .foregroundColor(bgColorText)

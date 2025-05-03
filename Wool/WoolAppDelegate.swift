@@ -31,8 +31,7 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
-    -> Bool
-  {
+    -> Bool {
     return false
   }
 
@@ -42,35 +41,35 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     if !wool.hasPermission {
       return
     }
-    
+
     let state = state ?? !wool.isScreenLockEnabled
 
     if state {
       toggleKeyboardLock(true)
-      
+
       // toggle keyboard can trigger permissions
       if !wool.hasPermission {
         return
       }
-      
+
       showLockScreenWindow()
     } else {
       toggleKeyboardLock(false)
       hideLockScreenWindow()
     }
-    
+
     wool.isScreenLockEnabled = state
   }
 
   func toggleKeyboardLock(_ state: Bool? = nil) {
     guard let wool else { return }
-    
+
     if !wool.hasPermission {
       return
     }
-    
+
     let state = state ?? !wool.isKeyboardLockEnabled
-    
+
     if state {
       if !lockKeyboard() {
         return
@@ -78,7 +77,7 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     } else {
       unlockKeyboard()
     }
-    
+
     wool.isKeyboardLockEnabled = state
   }
 
@@ -128,7 +127,7 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       CGEvent.tapEnable(tap: eventTap, enable: true)
       return true
     }
-    
+
     return setupEventTap()
   }
 
@@ -137,16 +136,16 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       CGEvent.tapEnable(tap: eventTap, enable: false)
     }
   }
-  
+
   private func checkAccessibilitySettings() -> Bool {
     if CGPreflightListenEventAccess() {
       return true
     }
-      
+
     if CGRequestListenEventAccess() {
       return true
     }
-    
+
     print("No accessibility settings access granted.")
     return false
   }
@@ -154,7 +153,7 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
   private func setupEventTap() -> Bool {
     let eventMask = (1 << CGEventType.keyDown.rawValue)
     let refcon = Unmanaged.passRetained(self)
-    
+
     guard
       let eventTap = CGEvent.tapCreate(
         tap: .cghidEventTap,
@@ -168,8 +167,8 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       print(
         "Failed to create event tap. Check system preferences for accessibility settings."
       )
-      
-      wool?.hasPermission = false;
+
+      wool?.hasPermission = false
       return false
     }
 
@@ -183,9 +182,9 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
     CGEvent.tapEnable(tap: eventTap, enable: true)
     CFRunLoopRun()
-    
-    wool?.hasPermission = true;
-    
+
+    wool?.hasPermission = true
+
     return true
   }
 
@@ -194,21 +193,20 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
     }
   }
-  
-    
+
   @MainActor
   func trySetupEventTap() async -> Bool {
     if !setupEventTap() {
       return false
     }
-    
+
     if let eventTap {
       CGEvent.tapEnable(tap: eventTap, enable: false)
     }
-    
+
     return true
   }
-  
+
   func trySetupEventTapUntilSuccess(interval: TimeInterval = 2) {
     Task.detached { [self] in
       while true {

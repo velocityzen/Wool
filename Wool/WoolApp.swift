@@ -38,7 +38,7 @@ struct WoolApp: App {
       .disabled(!wool.hasPermission)
 
       Divider()
-      
+
       if !wool.hasPermission {
         Button(action: openAccessibilitySettings) {
           Label(
@@ -47,7 +47,7 @@ struct WoolApp: App {
           )
           .labelStyle(.titleAndIcon)
         }
-        
+
         Divider()
       }
 
@@ -77,7 +77,7 @@ struct WoolApp: App {
   func toggleKeyboardLock() {
     appDelegate.toggleKeyboardLock()
   }
-  
+
   func openAccessibilitySettings() {
     openSystemSettings(.privacyAccessibility)
     appDelegate.trySetupEventTapUntilSuccess()
