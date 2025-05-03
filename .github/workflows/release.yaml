@@ -6,8 +6,13 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: xcode16.3
     steps:
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Checkout code
         uses: actions/checkout@v4
 
