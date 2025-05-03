@@ -6,10 +6,12 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-15-arm64
+    runs-on: macos-latest
     steps:
       - name: List Xcodes
         run: |
+          sw_vers -productVersion
+          system_profiler SPDeveloperToolsDataType
           xcode-select --print-path
           ls /Applications/
 
