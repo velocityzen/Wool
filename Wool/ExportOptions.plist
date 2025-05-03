@@ -12,6 +12,9 @@
     <key>signingStyle</key>
     <string>automatic</string>
 
+    <key>teamID</key>
+    <string>AEYF632Y3N</string>
+
     <key>stripSwiftSymbols</key>
     <true />
   </dict>

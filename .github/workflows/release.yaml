@@ -58,9 +58,19 @@ jobs:
         id: version
         run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
-      - name: Zip the App
+      - name: Notarize and Pack
         run: |
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./build/export/Wool.zip"
+          xcrun notarytool submit \
+            --team-id 'AEYF632Y3N' \
+            --apple-id 'v@2dubs.com' \
+            --password "$NOTARY_PASSWORD" \
+            --wait \
+            "./build/export/Wool.zip"
+          xcrun stapler staple "./build/export/Wool.app"
           ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool-${{ steps.version.outputs.tag }}.zip"
+        env:
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
