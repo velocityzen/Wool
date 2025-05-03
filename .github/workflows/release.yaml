@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: List Xcodes
         run: |
