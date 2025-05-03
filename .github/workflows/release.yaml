@@ -60,9 +60,9 @@ jobs:
 
       - name: Zip the App
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool_${{ steps.version.outputs.tag }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool-${{ steps.version.outputs.tag }}.zip"
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "./Wool_${{ steps.version.outputs.tag }}.zip"
+          files: "./Wool-${{ steps.version.outputs.tag }}.zip"
