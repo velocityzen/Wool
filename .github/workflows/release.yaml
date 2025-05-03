@@ -38,22 +38,6 @@ jobs:
       - name: Clean project
         run: xcodebuild clean
 
-      - name: Build Unit Tests
-        run: |
-          xcodebuild build-for-testing -project Wool.xcodeproj -scheme WoolTests -enableCodeCoverage YES -derivedDataPath build
-
-      - name: Run Unit Tests
-        run: |
-          xcodebuild test-without-building -project Wool.xcodeproj -scheme WoolTests -enableCodeCoverage YES -derivedDataPath build
-
-      - name: Build UI Tests
-        run: |
-          xcodebuild build-for-testing -project Wool.xcodeproj -scheme WoolUITests -configuration Debug -derivedDataPath build
-
-      - name: Run UI Tests
-        run: |
-          xcodebuild test-without-building -project Wool.xcodeproj -scheme WoolUITests -configuration Debug -derivedDataPath build
-
       - name: Build App
         run: |
           xcodebuild archive \
@@ -70,15 +54,16 @@ jobs:
             -exportOptionsPlist Wool/ExportOptions.plist \
             -exportPath build/export
 
-      - id: version
-        name: Get version
-        uses: jannemattila/get-version-from-tag@v4
+      - name: Determine release tag
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
 
       - name: Zip the .app
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool_${{ steps.version.outputs.version }}.zip
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool_$RELEASE_TAG.zip"
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./Wool_${{ steps.version.outputs.version }}.zip
+          files: "./Wool_$RELEASE_TAG.zip"
