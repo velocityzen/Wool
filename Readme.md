@@ -1,4 +1,4 @@
-![Wool](.github/media/Wool@2x.png "Wool")
+<img src=".github/media/Wool@2x.png" alt="Wool" width="128"/>
 
 # Wool
 
