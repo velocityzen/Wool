@@ -54,16 +54,15 @@ jobs:
             -exportOptionsPlist Wool/ExportOptions.plist \
             -exportPath build/export
 
-      - name: Determine release tag
-        run: |
-          TAG="${GITHUB_REF##*/}"
-          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+      - name: Get Version from Tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
-      - name: Zip the .app
+      - name: Zip the App
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool_$RELEASE_TAG.zip"
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool_${{ steps.version.outputs.tag }}.zip"
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "./Wool_$RELEASE_TAG.zip"
+          files: "./Wool_${{ steps.version.outputs.tag }}.zip"
