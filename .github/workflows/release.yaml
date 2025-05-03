@@ -70,11 +70,15 @@ jobs:
             -exportOptionsPlist Wool/ExportOptions.plist \
             -exportPath build/export
 
+      - id: version
+        name: Get version
+        uses: jannemattila/get-version-from-tag@v4
+
       - name: Zip the .app
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool_${{ github.event.release.tag_name }}.zip
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool_${{ steps.version.outputs.version }}.zip
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./Wool_${{ github.event.release.tag_name }}.zip
+          files: ./Wool_${{ steps.version.outputs.version }}.zip
