@@ -417,8 +417,9 @@
 				INFOPLIST_FILE = Wool/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wool;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSBackgroundOnly = NO;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app needs access to keyboard events to handle media keys";
+				INFOPLIST_KEY_LSBackgroundOnly = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app needs access to keyboard events to lock the keyboard while cleaning the screen";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -451,8 +452,9 @@
 				INFOPLIST_FILE = Wool/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wool;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSBackgroundOnly = NO;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app needs access to keyboard events to handle media keys";
+				INFOPLIST_KEY_LSBackgroundOnly = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "This app needs access to keyboard events to lock the keyboard while cleaning the screen";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
