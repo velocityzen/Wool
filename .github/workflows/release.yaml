@@ -1,0 +1,77 @@
+name: Release
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Certificates
+        run: |
+          # https://docs.github.com/en/actions/deployment/deploying-xcode-applications/installing-an-apple-certificate-on-macos-runners-for-xcode-development
+          APPLE_DEVELOPER_CERTIFICATE_PATH=$RUNNER_TEMP/madev.p12
+          DEVELOPER_ID_APPLICATION_CERTIFICATE_PATH=$RUNNER_TEMP/devid.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo -n "$APPLE_DEVELOPER_CERTIFICATE" | base64 --decode -o $APPLE_DEVELOPER_CERTIFICATE_PATH
+          echo -n "$DEVELOPER_ID_APPLICATION_CERTIFICATE" | base64 --decode -o $DEVELOPER_ID_APPLICATION_CERTIFICATE_PATH
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $APPLE_DEVELOPER_CERTIFICATE_PATH -P "$APPLE_DEVELOPER_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $DEVELOPER_ID_APPLICATION_CERTIFICATE_PATH -P "$DEVELOPER_ID_APPLICATION_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+        env:
+          DEVELOPER_ID_APPLICATION_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE }}
+          DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+          APPLE_DEVELOPER_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE }}
+          APPLE_DEVELOPER_PASSWORD: ${{ secrets.APPLE_DEVELOPER_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Clean project
+        run: xcodebuild clean
+
+      - name: Build Unit Tests
+        run: |
+          xcodebuild build-for-testing -project Wool.xcodeproj -scheme WoolTests -enableCodeCoverage YES -derivedDataPath build
+
+      - name: Run Unit Tests
+        run: |
+          xcodebuild test-without-building -project Wool.xcodeproj -scheme WoolTests -enableCodeCoverage YES -derivedDataPath build
+
+      - name: Build UI Tests
+        run: |
+          xcodebuild build-for-testing -project Wool.xcodeproj -scheme WoolUITests -configuration Debug -derivedDataPath build
+
+      - name: Run UI Tests
+        run: |
+          xcodebuild test-without-building -project Wool.xcodeproj -scheme WoolUITests -configuration Debug -derivedDataPath build
+
+      - name: Build App
+        run: |
+          xcodebuild archive \
+            -project Wool.xcodeproj/ \
+            -scheme Wool \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath build/Wool.xcarchive
+
+      - name: Export App
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/Wool.xcarchive \
+            -exportOptionsPlist Wool/ExportOptions.plist \
+            -exportPath build/export
+
+      - name: Zip the .app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app ./Wool.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./Wool.zip
