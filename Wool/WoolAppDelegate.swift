@@ -26,7 +26,8 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    // nothin, absolutly nothin
+    guard let wool else { return }
+    wool.hasPermission = checkAccessibilitySettings()
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
@@ -36,39 +37,49 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func toggleScreenAndKeyboardLock(_ state: Bool? = nil) {
-    guard let wool = self.wool else { return }
+    guard let wool else { return }
 
-    if let state {
-      wool.isScreenLockEnabled = state
-    } else {
-      wool.isScreenLockEnabled.toggle()
+    if !wool.hasPermission {
+      return
     }
+    
+    let state = state ?? !wool.isScreenLockEnabled
 
-    if wool.isScreenLockEnabled {
-      wool.isKeyboardLockEnabled = true
+    if state {
+      toggleKeyboardLock(true)
+      
+      // toggle keyboard can trigger permissions
+      if !wool.hasPermission {
+        return
+      }
+      
       showLockScreenWindow()
-      lockKeyboard()
     } else {
-      wool.isKeyboardLockEnabled = false
+      toggleKeyboardLock(false)
       hideLockScreenWindow()
-      unlockKeyboard()
     }
+    
+    wool.isScreenLockEnabled = state
   }
 
   func toggleKeyboardLock(_ state: Bool? = nil) {
-    guard let wool = self.wool else { return }
-
-    if let state {
-      wool.isKeyboardLockEnabled = state
-    } else {
-      wool.isKeyboardLockEnabled.toggle()
+    guard let wool else { return }
+    
+    if !wool.hasPermission {
+      return
     }
-
-    if wool.isKeyboardLockEnabled {
-      lockKeyboard()
+    
+    let state = state ?? !wool.isKeyboardLockEnabled
+    
+    if state {
+      if !lockKeyboard() {
+        return
+      }
     } else {
       unlockKeyboard()
     }
+    
+    wool.isKeyboardLockEnabled = state
   }
 
   private func showLockScreenWindow() {
@@ -112,12 +123,13 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     self.window = window
   }
 
-  private func lockKeyboard() {
+  private func lockKeyboard() -> Bool {
     if let eventTap {
       CGEvent.tapEnable(tap: eventTap, enable: true)
-    } else {
-      setupEventTap()
+      return true
     }
+    
+    return setupEventTap()
   }
 
   private func unlockKeyboard() {
@@ -125,13 +137,24 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       CGEvent.tapEnable(tap: eventTap, enable: false)
     }
   }
+  
+  private func checkAccessibilitySettings() -> Bool {
+    if CGPreflightListenEventAccess() {
+      return true
+    }
+      
+    if CGRequestListenEventAccess() {
+      return true
+    }
+    
+    print("No accessibility settings access granted.")
+    return false
+  }
 
-  private func setupEventTap() {
+  private func setupEventTap() -> Bool {
     let eventMask = (1 << CGEventType.keyDown.rawValue)
-    let refcon = UnsafeMutableRawPointer(
-      Unmanaged.passUnretained(self).toOpaque()
-    )
-
+    let refcon = Unmanaged.passRetained(self)
+    
     guard
       let eventTap = CGEvent.tapCreate(
         tap: .cghidEventTap,
@@ -139,13 +162,15 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
         options: .defaultTap,
         eventsOfInterest: CGEventMask(eventMask),
         callback: eventTapCallback,
-        userInfo: refcon
+        userInfo: refcon.toOpaque()
       )
     else {
       print(
         "Failed to create event tap. Check system preferences for accessibility settings."
       )
-      return quit()
+      
+      wool?.hasPermission = false;
+      return false
     }
 
     self.eventTap = eventTap
@@ -158,13 +183,44 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
     CGEvent.tapEnable(tap: eventTap, enable: true)
     CFRunLoopRun()
+    
+    wool?.hasPermission = true;
+    
+    return true
   }
 
   private func destroyEventTap() {
     if let source = runLoopSource {
       CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
     }
-
+  }
+  
+    
+  @MainActor
+  func trySetupEventTap() async -> Bool {
+    if !setupEventTap() {
+      return false
+    }
+    
+    if let eventTap {
+      CGEvent.tapEnable(tap: eventTap, enable: false)
+    }
+    
+    return true
+  }
+  
+  func trySetupEventTapUntilSuccess(interval: TimeInterval = 2) {
+    Task.detached { [self] in
+      while true {
+        if await trySetupEventTap() {
+          print("User gives me permission to listen for keyboard events!")
+          break
+        } else {
+          print("Waiting for user to give me permission to create an event tap in \(interval)s...")
+          try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        }
+      }
+    }
   }
 
   func onKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {

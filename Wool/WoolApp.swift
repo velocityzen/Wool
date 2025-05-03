@@ -3,6 +3,7 @@ import SwiftUI
 @Observable class Wool {
   var isScreenLockEnabled: Bool = false
   var isKeyboardLockEnabled: Bool = false
+  var hasPermission: Bool = false
 }
 
 @main
@@ -24,6 +25,7 @@ struct WoolApp: App {
         .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("S")
+      .disabled(!wool.hasPermission)
 
       Button(action: toggleKeyboardLock) {
         Label(
@@ -33,8 +35,21 @@ struct WoolApp: App {
         .labelStyle(.titleAndIcon)
       }
       .keyboardShortcut("K")
+      .disabled(!wool.hasPermission)
 
       Divider()
+      
+      if !wool.hasPermission {
+        Button(action: openAccessibilitySettings) {
+          Label(
+            "Open Security & Privacy > Accessibility > Keyboard",
+            systemImage: "exclamationmark.triangle"
+          )
+          .labelStyle(.titleAndIcon)
+        }
+        
+        Divider()
+      }
 
       Button("Quit") {
         quit()
@@ -61,6 +76,11 @@ struct WoolApp: App {
 
   func toggleKeyboardLock() {
     appDelegate.toggleKeyboardLock()
+  }
+  
+  func openAccessibilitySettings() {
+    openSystemSettings(.privacyAccessibility)
+    appDelegate.trySetupEventTapUntilSuccess()
   }
 
   func quit() {
