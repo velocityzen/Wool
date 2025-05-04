@@ -14,6 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get Version from Tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+
+      - name: Set version in Info.plist
+        run: |
+          PLIST_PATH="Wool/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string${{ steps.version.outputs.tag }}" "$PLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ steps.version.outputs.tag }}" "$PLIST_PATH"
+
       - name: Install Certificates
         run: |
           # https://docs.github.com/en/actions/deployment/deploying-xcode-applications/installing-an-apple-certificate-on-macos-runners-for-xcode-development
@@ -53,10 +63,6 @@ jobs:
             -archivePath build/Wool.xcarchive \
             -exportOptionsPlist Wool/ExportOptions.plist \
             -exportPath build/export
-
-      - name: Get Version from Tag
-        id: version
-        run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Notarize and Pack
         run: |
