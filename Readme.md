@@ -4,6 +4,8 @@
 
 Small App that makes cleaning your screen and keyboard a breeze
 
+📦 [Download latest version](https://github.com/velocityzen/Wool/releases)
+
 ## Features
 
 - Block screen and keyboard
