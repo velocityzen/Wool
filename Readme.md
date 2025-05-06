@@ -1,4 +1,5 @@
-<img src=".github/media/Wool@2x.png" alt="Wool" width="128" align="right"/>
+<img src=".github/media/Wool@2x.png" alt="Wool" width="64" align="right"/>
+<br />
 
 # Wool
 
