@@ -8,31 +8,50 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
   var eventTap: CFMachPort?
   var runLoopSource: CFRunLoopSource?
 
+  var hasApplicationDidFinishLaunching: Bool = false
+  var pendingDeepLink: URL?
+  
   weak var wool: Wool?
 
   func application(_ application: NSApplication, open urls: [URL]) {
+    if !hasApplicationDidFinishLaunching {
+      pendingDeepLink = urls.first
+      return
+    }
+    
     for url in urls {
-      switch url.host {
-      case "toggle-lock":
-        toggleScreenAndKeyboardLock(pathToBool(url.path))
-
-      case "toggle-keyboard-lock":
-        toggleKeyboardLock(pathToBool(url.path))
-
-      default:
-        return
-      }
+      handleDeepLink(url)
     }
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    hasApplicationDidFinishLaunching = true
+    
     guard let wool else { return }
     wool.hasPermission = checkAccessibilitySettings()
+    
+    if let pendingDeepLink {
+      handleDeepLink(pendingDeepLink)
+      self.pendingDeepLink = nil
+    }
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
     -> Bool {
     return false
+  }
+  
+  func handleDeepLink(_ url: URL) {
+    switch url.host {
+      case "toggle-lock":
+        toggleScreenAndKeyboardLock(pathToBool(url.path))
+        
+      case "toggle-keyboard-lock":
+        toggleKeyboardLock(pathToBool(url.path))
+        
+      default:
+        return
+    }
   }
 
   func toggleScreenAndKeyboardLock(_ state: Bool? = nil) {
