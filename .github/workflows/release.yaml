@@ -18,11 +18,8 @@ jobs:
         id: version
         run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
-      - name: Set version in Info.plist
-        run: |
-          PLIST_PATH="Wool/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version.outputs.tag }}" "$PLIST_PATH"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ steps.version.outputs.tag }}" "$PLIST_PATH"
+      - name: Set version
+        run: agvtool new-version ${{ steps.version.outputs.tag }}
 
       - name: Install Certificates
         run: |
