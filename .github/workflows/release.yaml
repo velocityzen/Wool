@@ -21,7 +21,7 @@ jobs:
       - name: Set version in Info.plist
         run: |
           PLIST_PATH="Wool/Info.plist"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string${{ steps.version.outputs.tag }}" "$PLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version.outputs.tag }}" "$PLIST_PATH"
           /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ steps.version.outputs.tag }}" "$PLIST_PATH"
 
       - name: Install Certificates
