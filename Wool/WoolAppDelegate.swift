@@ -3,6 +3,7 @@ import SwiftUI
 
 let ANSI_S: CGKeyCode = 0x01
 
+@MainActor
 class WoolAppDelegate: NSObject, NSApplicationDelegate {
   var window: NSWindow?
   var eventTap: CFMachPort?
@@ -213,7 +214,6 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  @MainActor
   func trySetupEventTap() async -> Bool {
     if !setupEventTap() {
       return false
@@ -240,30 +240,8 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  func onKeyDown(event: CGEvent) -> Unmanaged<CGEvent>? {
-    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-    let flags = event.flags
-
-    let isCommand = flags.contains(.maskCommand)
-    let isShift = flags.contains(.maskShift)
-
-    if keyCode == ANSI_S && isCommand && isShift {
-      toggleScreenAndKeyboardLock(false)
-    }
-
-    return nil
-  }
-
   func applicationWillTerminate(_ notification: Notification) {
     unlockKeyboard()
-    destroyEventTap()
-  }
-
-  func quit() {
-    NSApplication.shared.terminate(self)
-  }
-
-  deinit {
     destroyEventTap()
   }
 }
@@ -274,15 +252,26 @@ private func eventTapCallback(
   event: CGEvent,
   userInfo: UnsafeMutableRawPointer?
 ) -> Unmanaged<CGEvent>? {
-  if type == .keyDown {
+  if type != .keyDown {
+    return Unmanaged.passUnretained(event)
+  }
+  
+  let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+  let isCommand = event.flags.contains(.maskCommand)
+  let isShift = event.flags.contains(.maskShift)
+  
+  if keyCode == ANSI_S && isCommand && isShift {
     if let userInfo {
       let delegate = Unmanaged<WoolAppDelegate>.fromOpaque(userInfo)
         .takeUnretainedValue()
-      return delegate.onKeyDown(event: event)
+      
+      Task { @MainActor in
+        delegate.toggleScreenAndKeyboardLock(false)
+      }
     }
   }
-
-  return Unmanaged.passUnretained(event)
+  
+  return nil
 }
 
 func pathToBool(_ path: String?) -> Bool? {
@@ -291,11 +280,13 @@ func pathToBool(_ path: String?) -> Bool? {
   }
 
   switch path.replacingOccurrences(of: "/", with: "").lowercased() {
-  case "true", "yes", "on", "1":
-    return true
-  case "false", "no", "off", "0":
-    return false
-  default:
-    return nil
+    case "true", "yes", "on", "1":
+      return true
+  
+    case "false", "no", "off", "0":
+      return false
+  
+    default:
+      return nil
   }
 }
