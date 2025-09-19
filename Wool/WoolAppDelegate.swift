@@ -199,9 +199,8 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
       eventTap,
       0
     )
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+    CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
     CGEvent.tapEnable(tap: eventTap, enable: true)
-    CFRunLoopRun()
 
     wool?.hasPermission = true
 
@@ -210,7 +209,7 @@ class WoolAppDelegate: NSObject, NSApplicationDelegate {
 
   private func destroyEventTap() {
     if let source = runLoopSource {
-      CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+      CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
     }
   }
 
