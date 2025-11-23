@@ -4,22 +4,41 @@ on:
     tags:
       - "*"
 
+env:
+  TEAM_ID: "AEYF632Y3N"
+  APPLE_ID: "v@2dubs.com"
+  APP_NAME: "Wool.app"
+  XCODE_PROJECT: "Wool.xcodeproj"
+  XCODE_SCHEME: "Wool"
+  XCODE_ARCHIVE: "Wool.xcarchive"
+  BUILD_DIR: "build"
+  EXPORT_OPTIONS_PLIST: "Wool/ExportOptions.plist"
+  DMG_FILE_NAME: "Wool.dmg"
+  DMG_BACKGROUND_FILE_NAME: "Assets/wool_bg@2x.png"
+
 jobs:
   build-and-release:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.0.app/Contents/Developer
-
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get Version from Tag
         id: version
         run: echo "tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.1.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Check Swift Version
+        run: swift --version
+
       - name: Set version
-        run: agvtool new-version ${{ steps.version.outputs.tag }}
+        run: |
+          agvtool new-version ${{ steps.version.outputs.tag }}
+          agvtool new-marketing-version ${{ steps.version.outputs.tag }}
 
       - name: Install Certificates
         run: |
@@ -48,34 +67,44 @@ jobs:
       - name: Build App
         run: |
           xcodebuild archive \
-            -project Wool.xcodeproj/ \
-            -scheme Wool \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -destination 'generic/platform=macOS' \
-            -archivePath build/Wool.xcarchive
+            -archivePath "$BUILD_DIR/$XCODE_ARCHIVE"
 
       - name: Export App
         run: |
           xcodebuild -exportArchive \
-            -archivePath build/Wool.xcarchive \
-            -exportOptionsPlist Wool/ExportOptions.plist \
-            -exportPath build/export
+            -archivePath "$BUILD_DIR/$XCODE_ARCHIVE" \
+            -exportOptionsPlist "$EXPORT_OPTIONS_PLIST" \
+            -exportPath "$BUILD_DIR"
 
-      - name: Notarize and Pack
+      - name: Install dmgs tool
         run: |
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./build/export/Wool-${{ steps.version.outputs.tag }}.zip"
+          curl -L -o dmgs.tar.gz https://github.com/velocityzen/dmgs/releases/latest/download/dmgs.tar.gz
+          tar -xzf dmgs.tar.gz
+          chmod +x dmgs
+          sudo mv dmgs /usr/local/bin/
+
+      - name: Notarize App
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "$BUILD_DIR/$APP_NAME" "$BUILD_DIR/$APP_NAME.zip"
           xcrun notarytool submit \
-            --team-id 'AEYF632Y3N' \
-            --apple-id 'v@2dubs.com' \
+            --team-id "$TEAM_ID" \
+            --apple-id "$APPLE_ID" \
             --password "$NOTARY_PASSWORD" \
             --wait \
-            "./build/export/Wool-${{ steps.version.outputs.tag }}.zip"
-          xcrun stapler staple "./build/export/Wool.app"
-          ditto -c -k --sequesterRsrc --keepParent ./build/export/Wool.app "./Wool-${{ steps.version.outputs.tag }}.zip"
+            "$BUILD_DIR/$APP_NAME.zip"
+          xcrun stapler staple "$BUILD_DIR/$APP_NAME.zip"
         env:
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+
+      - name: Create DMG
+        run: |
+          dmgs "$BUILD_DIR/$APP_NAME" "$DMG_BACKGROUND_FILE_NAME" --output "$DMG_FILE_NAME" --sign "$TEAM_ID"
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "./Wool-${{ steps.version.outputs.tag }}.zip"
+          files: "$DMG_FILE_NAME"
