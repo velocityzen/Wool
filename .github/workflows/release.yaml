@@ -93,17 +93,12 @@ jobs:
         env:
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
 
-      - name: Install dmgs tool
+      - name: Create DMG
         run: |
           curl -L -o dmgs.tar.gz https://github.com/velocityzen/dmgs/releases/latest/download/dmgs.tar.gz
           tar -xzf dmgs.tar.gz
           chmod +x dmgs
-          sudo mv dmgs /usr/local/bin/
-
-      - name: Create DMG
-        run: |
-          ls -al
-          dmgs create "$BUILD_DIR/$APP_NAME" "$DMG_BACKGROUND_FILE_NAME" --output "$DMG_FILE_NAME" --sign "$TEAM_ID"
+          dmgs create "$BUILD_DIR/$APP_NAME" "$DMG_BACKGROUND_FILE_NAME" --sign "$TEAM_ID"
 
       - name: Release
         uses: softprops/action-gh-release@v2
