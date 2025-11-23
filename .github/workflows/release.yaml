@@ -14,7 +14,7 @@ env:
   BUILD_DIR: "build"
   EXPORT_OPTIONS_PLIST: "Wool/ExportOptions.plist"
   DMG_FILE_NAME: "Wool.dmg"
-  DMG_BACKGROUND_FILE_NAME: "Assets/wool_bg@2x.png"
+  DMG_BACKGROUND_FILE_NAME: "./Assets/wool_bg@2x.png"
 
 jobs:
   build-and-release:
@@ -102,7 +102,8 @@ jobs:
 
       - name: Create DMG
         run: |
-          dmgs "$BUILD_DIR/$APP_NAME" "$DMG_BACKGROUND_FILE_NAME" --output "$DMG_FILE_NAME" --sign "$TEAM_ID"
+          ls -al
+          dmgs create "$BUILD_DIR/$APP_NAME" "$DMG_BACKGROUND_FILE_NAME" --output "$DMG_FILE_NAME" --sign "$TEAM_ID"
 
       - name: Release
         uses: softprops/action-gh-release@v2
