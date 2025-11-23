@@ -106,4 +106,4 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "$DMG_FILE_NAME"
+          files: ${{ env.DMG_FILE_NAME }}
