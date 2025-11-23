@@ -80,13 +80,6 @@ jobs:
             -exportOptionsPlist "$EXPORT_OPTIONS_PLIST" \
             -exportPath "$BUILD_DIR"
 
-      - name: Install dmgs tool
-        run: |
-          curl -L -o dmgs.tar.gz https://github.com/velocityzen/dmgs/releases/latest/download/dmgs.tar.gz
-          tar -xzf dmgs.tar.gz
-          chmod +x dmgs
-          sudo mv dmgs /usr/local/bin/
-
       - name: Notarize App
         run: |
           ditto -c -k --sequesterRsrc --keepParent "$BUILD_DIR/$APP_NAME" "$BUILD_DIR/$APP_NAME.zip"
@@ -96,9 +89,16 @@ jobs:
             --password "$NOTARY_PASSWORD" \
             --wait \
             "$BUILD_DIR/$APP_NAME.zip"
-          xcrun stapler staple "$BUILD_DIR/$APP_NAME.zip"
+          xcrun stapler staple "$BUILD_DIR/$APP_NAME"
         env:
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+
+      - name: Install dmgs tool
+        run: |
+          curl -L -o dmgs.tar.gz https://github.com/velocityzen/dmgs/releases/latest/download/dmgs.tar.gz
+          tar -xzf dmgs.tar.gz
+          chmod +x dmgs
+          sudo mv dmgs /usr/local/bin/
 
       - name: Create DMG
         run: |
