@@ -3,289 +3,309 @@ import SwiftUI
 
 let ANSI_S: CGKeyCode = 0x01
 
+// CGEventType has no case for system-defined events; raw value 14 = NX_SYSDEFINED.
+// Used by media keys (play/pause, next, prev, volume, brightness, etc.).
+let SYSTEM_DEFINED_EVENT_TYPE: UInt32 = 14
+let SYSTEM_DEFINED_SUBTYPE_AUX_KEY: Int16 = 8
+
 @MainActor
 class WoolAppDelegate: NSObject, NSApplicationDelegate {
-  var window: NSWindow?
-  var eventTap: CFMachPort?
-  var runLoopSource: CFRunLoopSource?
+    var window: NSWindow?
+    var eventTap: CFMachPort?
+    var runLoopSource: CFRunLoopSource?
 
-  var hasApplicationDidFinishLaunching: Bool = false
-  var pendingDeepLink: URL?
-  
-  weak var wool: Wool?
+    var hasApplicationDidFinishLaunching: Bool = false
+    var pendingDeepLink: URL?
 
-  func application(_ application: NSApplication, open urls: [URL]) {
-    if !hasApplicationDidFinishLaunching {
-      pendingDeepLink = urls.first
-      return
-    }
-    
-    for url in urls {
-      handleDeepLink(url)
-    }
-  }
+    weak var wool: Wool?
 
-  func applicationDidFinishLaunching(_ notification: Notification) {
-    hasApplicationDidFinishLaunching = true
-    
-    guard let wool else { return }
-    wool.hasPermission = checkAccessibilitySettings()
-    
-    if let pendingDeepLink {
-      handleDeepLink(pendingDeepLink)
-      self.pendingDeepLink = nil
-    }
-  }
-
-  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
-    -> Bool {
-    return false
-  }
-  
-  func handleDeepLink(_ url: URL) {
-    switch url.host {
-      case "toggle-lock":
-        toggleScreenAndKeyboardLock(pathToBool(url.path))
-        
-      case "toggle-keyboard-lock":
-        toggleKeyboardLock(pathToBool(url.path))
-        
-      default:
-        return
-    }
-  }
-
-  func toggleScreenAndKeyboardLock(_ state: Bool? = nil) {
-    guard let wool else { return }
-
-    if !wool.hasPermission {
-      return
-    }
-
-    let state = state ?? !wool.isScreenLockEnabled
-
-    if state {
-      toggleKeyboardLock(true)
-
-      // toggle keyboard can trigger permissions
-      if !wool.hasPermission {
-        return
-      }
-
-      showLockScreenWindow()
-    } else {
-      toggleKeyboardLock(false)
-      hideLockScreenWindow()
-    }
-
-    wool.isScreenLockEnabled = state
-  }
-
-  func toggleKeyboardLock(_ state: Bool? = nil) {
-    guard let wool else { return }
-
-    if !wool.hasPermission {
-      return
-    }
-
-    let state = state ?? !wool.isKeyboardLockEnabled
-
-    if state {
-      if !lockKeyboard() {
-        return
-      }
-    } else {
-      unlockKeyboard()
-    }
-
-    wool.isKeyboardLockEnabled = state
-  }
-
-  private func showLockScreenWindow() {
-    if let window {
-      window.makeKeyAndOrderFront(self)
-      window.toggleFullScreen(self)
-    } else {
-      createLockWindow()
-    }
-  }
-
-  private func hideLockScreenWindow() {
-    if let window {
-      window.close()
-    }
-  }
-
-  private func createLockWindow() {
-    guard let screen = NSScreen.main else { return }
-    let screenFrame = screen.frame
-
-    let window = NSWindow(
-      contentRect: screenFrame,
-      styleMask: [.borderless],
-      backing: .buffered,
-      defer: false,
-      screen: NSScreen.main
-    )
-
-    window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-    window.isOpaque = true
-    window.level = .mainMenu + 1
-    window.title = "Lock for \(screen.localizedName)"
-    window.isReleasedWhenClosed = false
-
-    window.contentView = NSHostingView(
-      rootView: LockScreenView(screenName: screen.localizedName)
-    )
-    window.orderFront(nil)
-
-    self.window = window
-  }
-
-  private func lockKeyboard() -> Bool {
-    if let eventTap {
-      CGEvent.tapEnable(tap: eventTap, enable: true)
-      return true
-    }
-
-    return setupEventTap()
-  }
-
-  private func unlockKeyboard() {
-    if let eventTap {
-      CGEvent.tapEnable(tap: eventTap, enable: false)
-    }
-  }
-
-  private func checkAccessibilitySettings() -> Bool {
-    if CGPreflightListenEventAccess() {
-      return true
-    }
-
-    if CGRequestListenEventAccess() {
-      return true
-    }
-
-    print("No accessibility settings access granted.")
-    return false
-  }
-
-  private func setupEventTap() -> Bool {
-    let eventMask = (1 << CGEventType.keyDown.rawValue)
-    let refcon = Unmanaged.passRetained(self)
-
-    guard
-      let eventTap = CGEvent.tapCreate(
-        tap: .cghidEventTap,
-        place: .headInsertEventTap,
-        options: .defaultTap,
-        eventsOfInterest: CGEventMask(eventMask),
-        callback: eventTapCallback,
-        userInfo: refcon.toOpaque()
-      )
-    else {
-      print(
-        "Failed to create event tap. Check system preferences for accessibility settings."
-      )
-
-      wool?.hasPermission = false
-      return false
-    }
-
-    self.eventTap = eventTap
-
-    runLoopSource = CFMachPortCreateRunLoopSource(
-      kCFAllocatorDefault,
-      eventTap,
-      0
-    )
-    CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-    CGEvent.tapEnable(tap: eventTap, enable: true)
-
-    wool?.hasPermission = true
-
-    return true
-  }
-
-  private func destroyEventTap() {
-    if let source = runLoopSource {
-      CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-    }
-  }
-
-  func trySetupEventTap() async -> Bool {
-    if !setupEventTap() {
-      return false
-    }
-
-    if let eventTap {
-      CGEvent.tapEnable(tap: eventTap, enable: false)
-    }
-
-    return true
-  }
-
-  func trySetupEventTapUntilSuccess(interval: TimeInterval = 2) {
-    Task.detached { [self] in
-      while true {
-        if await trySetupEventTap() {
-          print("User gives me permission to listen for keyboard events!")
-          break
-        } else {
-          print("Waiting for user to give me permission to create an event tap in \(interval)s...")
-          try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+    func application(_ application: NSApplication, open urls: [URL]) {
+        if !hasApplicationDidFinishLaunching {
+            pendingDeepLink = urls.first
+            return
         }
-      }
-    }
-  }
 
-  func applicationWillTerminate(_ notification: Notification) {
-    unlockKeyboard()
-    destroyEventTap()
-  }
+        for url in urls {
+            handleDeepLink(url)
+        }
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        hasApplicationDidFinishLaunching = true
+
+        guard let wool else { return }
+        wool.hasPermission = checkAccessibilitySettings()
+
+        if let pendingDeepLink {
+            handleDeepLink(pendingDeepLink)
+            self.pendingDeepLink = nil
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
+        -> Bool
+    {
+        return false
+    }
+
+    func handleDeepLink(_ url: URL) {
+        switch url.host {
+        case "toggle-lock":
+            toggleScreenAndKeyboardLock(pathToBool(url.path))
+
+        case "toggle-keyboard-lock":
+            toggleKeyboardLock(pathToBool(url.path))
+
+        default:
+            return
+        }
+    }
+
+    func toggleScreenAndKeyboardLock(_ state: Bool? = nil) {
+        guard let wool else { return }
+
+        if !wool.hasPermission {
+            return
+        }
+
+        let state = state ?? !wool.isScreenLockEnabled
+
+        if state {
+            toggleKeyboardLock(true)
+
+            // toggle keyboard can trigger permissions
+            if !wool.hasPermission {
+                return
+            }
+
+            showLockScreenWindow()
+        } else {
+            toggleKeyboardLock(false)
+            hideLockScreenWindow()
+        }
+
+        wool.isScreenLockEnabled = state
+    }
+
+    func toggleKeyboardLock(_ state: Bool? = nil) {
+        guard let wool else { return }
+
+        if !wool.hasPermission {
+            return
+        }
+
+        let state = state ?? !wool.isKeyboardLockEnabled
+
+        if state {
+            if !lockKeyboard() {
+                return
+            }
+        } else {
+            unlockKeyboard()
+        }
+
+        wool.isKeyboardLockEnabled = state
+    }
+
+    private func showLockScreenWindow() {
+        if let window {
+            window.makeKeyAndOrderFront(self)
+            window.toggleFullScreen(self)
+        } else {
+            createLockWindow()
+        }
+    }
+
+    private func hideLockScreenWindow() {
+        if let window {
+            window.close()
+        }
+    }
+
+    private func createLockWindow() {
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.frame
+
+        let window = NSWindow(
+            contentRect: screenFrame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false,
+            screen: NSScreen.main
+        )
+
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isOpaque = true
+        window.level = .mainMenu + 1
+        window.title = "Lock for \(screen.localizedName)"
+        window.isReleasedWhenClosed = false
+
+        window.contentView = NSHostingView(
+            rootView: LockScreenView(screenName: screen.localizedName)
+        )
+        window.orderFront(nil)
+
+        self.window = window
+    }
+
+    private func lockKeyboard() -> Bool {
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: true)
+            return true
+        }
+
+        return setupEventTap()
+    }
+
+    private func unlockKeyboard() {
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+        }
+    }
+
+    private func checkAccessibilitySettings() -> Bool {
+        if CGPreflightListenEventAccess() {
+            return true
+        }
+
+        if CGRequestListenEventAccess() {
+            return true
+        }
+
+        print("No accessibility settings access granted.")
+        return false
+    }
+
+    private func setupEventTap() -> Bool {
+        let eventMask =
+            (1 << CGEventType.keyDown.rawValue)
+            | (1 << SYSTEM_DEFINED_EVENT_TYPE)
+
+        let refcon = Unmanaged.passRetained(self)
+
+        guard
+            let eventTap = CGEvent.tapCreate(
+                tap: .cghidEventTap,
+                place: .headInsertEventTap,
+                options: .defaultTap,
+                eventsOfInterest: CGEventMask(eventMask),
+                callback: eventTapCallback,
+                userInfo: refcon.toOpaque()
+            )
+        else {
+            print(
+                "Failed to create event tap. Check system preferences for accessibility settings."
+            )
+
+            wool?.hasPermission = false
+            return false
+        }
+
+        self.eventTap = eventTap
+
+        runLoopSource = CFMachPortCreateRunLoopSource(
+            kCFAllocatorDefault,
+            eventTap,
+            0
+        )
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+
+        wool?.hasPermission = true
+
+        return true
+    }
+
+    private func destroyEventTap() {
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+    }
+
+    func trySetupEventTap() async -> Bool {
+        if !setupEventTap() {
+            return false
+        }
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+        }
+
+        return true
+    }
+
+    func trySetupEventTapUntilSuccess(interval: TimeInterval = 2) {
+        Task.detached { [self] in
+            while true {
+                if await trySetupEventTap() {
+                    print("User gives me permission to listen for keyboard events!")
+                    break
+                } else {
+                    print(
+                        "Waiting for user to give me permission to create an event tap in \(interval)s..."
+                    )
+                    try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                }
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        unlockKeyboard()
+        destroyEventTap()
+    }
 }
 
 private func eventTapCallback(
-  proxy: CGEventTapProxy,
-  type: CGEventType,
-  event: CGEvent,
-  userInfo: UnsafeMutableRawPointer?
+    proxy: CGEventTapProxy,
+    type: CGEventType,
+    event: CGEvent,
+    userInfo: UnsafeMutableRawPointer?
 ) -> Unmanaged<CGEvent>? {
-  if type != .keyDown {
-    return Unmanaged.passUnretained(event)
-  }
-  
-  let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-  let isCommand = event.flags.contains(.maskCommand)
-  let isShift = event.flags.contains(.maskShift)
-  
-  if keyCode == ANSI_S && isCommand && isShift {
-    if let userInfo {
-      let delegate = Unmanaged<WoolAppDelegate>.fromOpaque(userInfo)
-        .takeUnretainedValue()
-      
-      Task { @MainActor in
-        delegate.toggleScreenAndKeyboardLock(false)
-      }
+    if type.rawValue == SYSTEM_DEFINED_EVENT_TYPE {
+        if let nsEvent = NSEvent(cgEvent: event),
+            nsEvent.subtype.rawValue == SYSTEM_DEFINED_SUBTYPE_AUX_KEY
+        {
+            return nil
+        }
+        return Unmanaged.passUnretained(event)
     }
-  }
-  
-  return nil
+
+    if type != .keyDown {
+        return Unmanaged.passUnretained(event)
+    }
+
+    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+    let isCommand = event.flags.contains(.maskCommand)
+    let isShift = event.flags.contains(.maskShift)
+
+    if keyCode == ANSI_S && isCommand && isShift {
+        if let userInfo {
+            let delegate = Unmanaged<WoolAppDelegate>.fromOpaque(userInfo)
+                .takeUnretainedValue()
+
+            Task { @MainActor in
+                delegate.toggleScreenAndKeyboardLock(false)
+            }
+        }
+    }
+
+    return nil
 }
 
 func pathToBool(_ path: String?) -> Bool? {
-  guard let path else {
-    return nil
-  }
+    guard let path else {
+        return nil
+    }
 
-  switch path.replacingOccurrences(of: "/", with: "").lowercased() {
+    switch path.replacingOccurrences(of: "/", with: "").lowercased() {
     case "true", "yes", "on", "1":
-      return true
-  
+        return true
+
     case "false", "no", "off", "0":
-      return false
-  
+        return false
+
     default:
-      return nil
-  }
+        return nil
+    }
 }

@@ -1,13 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>LSUIElement</key>
-	<true/>
+	<true />
 	<key>LSBackgroundOnly</key>
-	<true/>
+	<true />
 	<key>NSAppleEventsUsageDescription</key>
-	<string>This app needs access to keyboard events to lock the keyboard while cleaning the screen</string>
+	<string
+        >This app needs access to keyboard events to lock the keyboard while cleaning the screen</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
